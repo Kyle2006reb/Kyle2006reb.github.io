@@ -87,32 +87,38 @@
     <section id="experience">
       <h2 class="section-title">Work Experience</h2>
 
-      <div class="entry">
-        <div class="entry-header">
-          <h3>ACTO</h3>
-          <span class="entry-meta">May 2026 – Present · Toronto, ON</span>
+      <div class="entry has-logo">
+        <img class="entry-logo" src="assets/logos/acto.png" alt="ACTO logo">
+        <div class="entry-body">
+          <div class="entry-header">
+            <h3>ACTO</h3>
+            <span class="entry-meta">May 2026 – Present · Toronto, ON</span>
+          </div>
+          <p class="entry-role">AI Engineer Intern</p>
+          <ul>
+            <li>Cut median quote-build time 4× (from ~120 to 30 min) for 10+ sales reps by replacing a legacy Excel pricing calculator with a natural-language LLM sales agent.</li>
+            <li>Ensured every quoted price is computed deterministically by architecting a hybrid system in which a deterministic pricing engine calculates all figures and the LLM only narrates them, confining hallucination and prompt-injection risk to explanatory text.</li>
+            <li>Delivered citation-backed answers traceable to source documents by building a retrieval-augmented generation (RAG) pipeline over an Amazon OpenSearch Serverless vector index.</li>
+            <li>Shipped the full-stack B2B platform hosting the agent, including SSO, three-tier role-based access control, PDF order-form generation, and token-secured proposal pages with engagement analytics.</li>
+          </ul>
         </div>
-        <p class="entry-role">AI Engineer Intern</p>
-        <ul>
-          <li>Cut median quote-build time 4× (from ~120 to 30 min) for 10+ sales reps by replacing a legacy Excel pricing calculator with a natural-language LLM sales agent.</li>
-          <li>Ensured every quoted price is computed deterministically by architecting a hybrid system in which a deterministic pricing engine calculates all figures and the LLM only narrates them, confining hallucination and prompt-injection risk to explanatory text.</li>
-          <li>Delivered citation-backed answers traceable to source documents by building a retrieval-augmented generation (RAG) pipeline over an Amazon OpenSearch Serverless vector index.</li>
-          <li>Shipped the full-stack B2B platform hosting the agent, including SSO, three-tier role-based access control, PDF order-form generation, and token-secured proposal pages with engagement analytics.</li>
-        </ul>
       </div>
 
-      <div class="entry">
-        <div class="entry-header">
-          <h3>Weever</h3>
-          <span class="entry-meta">Apr. 2026 – Present · Hamilton, ON</span>
+      <div class="entry has-logo">
+        <img class="entry-logo" src="assets/logos/weever.png" alt="Weever logo">
+        <div class="entry-body">
+          <div class="entry-header">
+            <h3>Weever</h3>
+            <span class="entry-meta">Apr. 2026 – Present · Hamilton, ON</span>
+          </div>
+          <p class="entry-role">Machine Learning Engineer (Part-time Contract)</p>
+          <ul>
+            <li>Enabled zero-configuration onboarding of any customer's operational logs by building a schema-agnostic Python pipeline (pandas, SciPy) that infers column types from content rather than names, with seeded, reproducible scoring.</li>
+            <li>Segmented workforces into behavioural archetypes by engineering 45 features (submission cadence, evidence quality, measurement consistency) and selecting between k-means and Gaussian mixture models using silhouette scores in scikit-learn.</li>
+            <li>Gave managers a ranked watchlist of workers showing engagement drift by building a composite risk score that compares each worker's output, documentation quality, and work patterns against their own baseline and their team's trend.</li>
+            <li>Let managers query results in plain English by shipping the analytics layer as a self-contained local app with an MCP server for LLM-based natural-language querying.</li>
+          </ul>
         </div>
-        <p class="entry-role">Machine Learning Engineer (Part-time Contract)</p>
-        <ul>
-          <li>Enabled zero-configuration onboarding of any customer's operational logs by building a schema-agnostic Python pipeline (pandas, SciPy) that infers column types from content rather than names, with seeded, reproducible scoring.</li>
-          <li>Segmented workforces into behavioural archetypes by engineering 45 features (submission cadence, evidence quality, measurement consistency) and selecting between k-means and Gaussian mixture models using silhouette scores in scikit-learn.</li>
-          <li>Gave managers a ranked watchlist of workers showing engagement drift by building a composite risk score that compares each worker's output, documentation quality, and work patterns against their own baseline and their team's trend.</li>
-          <li>Let managers query results in plain English by shipping the analytics layer as a self-contained local app with an MCP server for LLM-based natural-language querying.</li>
-        </ul>
       </div>
     </section>
 
@@ -120,20 +126,23 @@
     <section id="athletics">
       <h2 class="section-title">Athletics</h2>
 
-      <div class="entry">
-        <div class="entry-header">
-          <h3>McMaster Dragon Boat Competitive Rowing Team</h3>
-          <span class="entry-meta"><!-- TODO -->20XX – Present · Hamilton, ON</span>
+      <div class="entry has-logo">
+        <img class="entry-logo entry-logo--badge" src="assets/logos/mcmaster-dragon-boat.png" alt="McMaster Dragon Boat logo">
+        <div class="entry-body">
+          <div class="entry-header">
+            <h3>McMaster Dragon Boat Competitive Rowing Team</h3>
+            <span class="entry-meta"><!-- TODO -->20XX – Present · Hamilton, ON</span>
+          </div>
+          <p class="entry-role">Team Member</p>
+          <p>
+            Member of McMaster's competitive dragon boat team, training on and off the water and
+            racing with the crew through the season.
+          </p>
+          <p class="placeholder">
+            Optional: add your seat or position, training schedule, regattas or races you've competed in,
+            and any results or team roles.
+          </p>
         </div>
-        <p class="entry-role">Team Member</p>
-        <p>
-          Member of McMaster's competitive dragon boat team, training on and off the water and
-          racing with the crew through the season.
-        </p>
-        <p class="placeholder">
-          Optional: add your seat or position, training schedule, regattas or races you've competed in,
-          and any results or team roles.
-        </p>
       </div>
     </section>
 
