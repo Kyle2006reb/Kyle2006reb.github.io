@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>INT-8 FPGA Neural Network Accelerator — Kyle Rebello</title>
+  <meta name="description" content="An 8-bit neural network engine in Verilog that classifies handwritten digits on a Cyclone IV FPGA, verified bit-for-bit against a Python reference model.">
   <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -26,36 +27,40 @@
     <!-- ===================== TITLE ===================== -->
     <header class="project-header">
       <h1>INT-8 FPGA Neural Network Accelerator</h1>
-      <p class="summary">One-sentence summary: what you built and the headline result.</p>
+      <p class="summary">A custom 8-bit neural network engine in Verilog that recognizes handwritten digits, matching its Python reference bit-for-bit and finishing each digit in 128.7&nbsp;µs (simulated at 50&nbsp;MHz).</p>
 
       <div class="tags">
         <span class="tag">Verilog</span>
         <span class="tag">PyTorch</span>
         <span class="tag">Python</span>
+        <span class="tag">NumPy</span>
         <span class="tag">Quartus</span>
+        <span class="tag">ModelSim</span>
       </div>
 
       <dl class="meta-grid">
         <div>
           <dt>Timeline</dt>
-          <dd>Month YYYY – Month YYYY</dd>
+          <dd>Oct. 2026 – Present</dd>
         </div>
         <div>
           <dt>Role</dt>
-          <dd>Solo project / Team of N (your role)</dd>
+          <dd>Solo project</dd>
         </div>
         <div>
           <dt>Hardware / Platform</dt>
-          <dd>Board, device, or platform</dd>
+          <dd>Cyclone IV E FPGA (Terasic DE2-115)</dd>
         </div>
         <div>
           <dt>Links</dt>
-          <dd><a href="#">GitHub</a> · <a href="#">Demo</a></dd>
+          <!-- TODO: point this at the project's own repo once it's public, and add the demo video -->
+          <dd><a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a> · Board demo coming soon</dd>
         </div>
       </dl>
 
       <figure>
-        <div class="figure-placeholder">Hero image or photo of the finished project</div>
+        <img src="../assets/fpga-nn-accelerator/01-engine-test-pass.png" alt="ModelSim transcript: for all 10 test pictures, the hardware's answer matches the golden model, each in 6,437 clock cycles, ending with a PASS line">
+        <figcaption>Full-engine simulation in ModelSim: all 10 test digits match the Python golden model, each in 6,437 clock cycles. Picture 8 is a 5 that the network reads as a 6, and the hardware reproduces that mistake exactly.</figcaption>
       </figure>
     </header>
 
@@ -64,14 +69,19 @@
       <!-- ===================== OVERVIEW ===================== -->
       <section id="overview">
         <h2>Overview</h2>
-        <p class="placeholder">
-          A short paragraph a recruiter can read in 20 seconds: what the project is, why it matters,
-          and the key outcome.
+        <p>
+          I'm building a neural network accelerator from scratch: custom hardware, written in Verilog for an
+          FPGA, that recognizes handwritten digits. A small network is trained in PyTorch, converted to 8-bit
+          integers, and run on 16 multiply-accumulate (MAC) units working in parallel. In simulation, the
+          hardware matches a Python reference model on every intermediate value and classifies each digit in
+          6,437 clock cycles. The design is fully verified in simulation, and running it on the physical board
+          is the next step.
         </p>
         <div class="metrics">
-          <div class="metric"><div class="value">—</div><div class="label">Key metric 1</div></div>
-          <div class="metric"><div class="value">—</div><div class="label">Key metric 2</div></div>
-          <div class="metric"><div class="value">—</div><div class="label">Key metric 3</div></div>
+          <div class="metric"><div class="value">97.46%</div><div class="label">Test accuracy with 8-bit math (float model: 97.47%)</div></div>
+          <div class="metric"><div class="value">128.7&nbsp;µs</div><div class="label">Per digit at 50 MHz (6,437 cycles, simulated)</div></div>
+          <div class="metric"><div class="value">4×</div><div class="label">Smaller weights: 8-bit integers instead of 32-bit floats</div></div>
+          <div class="metric"><div class="value">100%</div><div class="label">Bit-exact match with the Python reference</div></div>
         </div>
       </section>
 
@@ -79,13 +89,18 @@
       <section id="objective">
         <h2>Objective &amp; Problem Statement</h2>
         <h3>Problem</h3>
-        <p class="placeholder">
-          What problem are you solving? Why is the existing approach slow, expensive, or inadequate?
+        <p>
+          Almost all of a neural network's work is one operation repeated over and over: multiply two numbers
+          and add the result to a running total. A regular processor does these one at a time using 32-bit
+          floating-point math, which is slow and power-hungry. AI chips such as Google's TPU and the neural
+          processors in phones speed this up by running many multiply-adds in parallel on small integers.
+          I wanted to understand how that hardware works by building a small version of it myself.
         </p>
         <h3>Objective</h3>
-        <p class="placeholder">
-          What did you set out to achieve? State it as a measurable goal where possible
-          (e.g. "reach X accuracy under Y latency on Z hardware").
+        <p>
+          Build an FPGA accelerator that classifies MNIST handwritten digits at 97% accuracy or better using
+          only 8-bit integer math, takes under 1&nbsp;ms per digit at the board's 50&nbsp;MHz clock, and matches
+          a software reference model bit-for-bit.
         </p>
       </section>
 
@@ -93,31 +108,115 @@
       <section id="requirements">
         <h2>Requirements &amp; Constraints</h2>
         <ul>
-          <li class="placeholder">Functional requirement (what the system must do)</li>
-          <li class="placeholder">Performance target (latency, throughput, accuracy, power)</li>
-          <li class="placeholder">Constraint (hardware resources, memory, budget, time)</li>
+          <li>Take a 28 × 28 grayscale image (784 pixels) and output the predicted digit, 0–9.</li>
+          <li>Stay within 1% of the original floating-point model's accuracy.</li>
+          <li>Match the Python golden model exactly at every layer, not just on the final answer.</li>
+          <li>Classify a digit in under 1&nbsp;ms at 50&nbsp;MHz.</li>
+          <li>Use integer math only (8-bit weights and activations, 32-bit running totals), with all of the
+            roughly 102&nbsp;KB of weights stored in the FPGA's on-chip memory.</li>
         </ul>
       </section>
 
-      <!-- ===================== BACKGROUND (optional) ===================== -->
+      <!-- ===================== BACKGROUND ===================== -->
       <section id="background">
         <h2>Background</h2>
-        <p class="placeholder">
-          Optional. Brief context a reader needs to follow the design: key concepts,
-          prior work, or why you chose this approach over alternatives.
+        <p>
+          The network has two fully connected layers: 784 pixels feed 128 neurons, which feed 10 output
+          neurons, one per digit. Each neuron multiplies every input by its own weight, adds up the results,
+          and (in layer 1) applies ReLU, which turns negative totals into zero. The digit with the highest
+          score wins.
+        </p>
+        <p>
+          Converting the trained weights from 32-bit floats to 8-bit integers, known as quantization, makes them
+          4× smaller and replaces expensive floating-point hardware with small integer multipliers, at almost
+          no cost in accuracy.
         </p>
       </section>
 
       <!-- ===================== DESIGN ===================== -->
       <section id="design">
         <h2>Design &amp; Architecture</h2>
-        <p class="placeholder">
-          Describe the high-level architecture and how the parts connect. Explain the key
-          design decisions and the trade-offs you considered.
+        <p>
+          The engine is built from 16 identical lanes. Each lane has its own weight memory, a MAC unit, and a
+          shrink unit that turns the 32-bit total back into an 8-bit value. Every clock cycle, one input is sent
+          to all 16 lanes at once, and each lane multiplies it by a weight from a different neuron, so 16
+          neurons are computed side by side.
+        </p>
+        <p>
+          Layer 1's 128 neurons take 8 rounds of 784 cycles. Their results go into a hidden buffer, and the same
+          16 lanes are reused for layer 2, reading from the hidden buffer instead of the image. A controller
+          state machine steps through the rounds, and a final step picks the highest of the 10 scores.
         </p>
         <figure>
-          <div class="figure-placeholder">System block diagram</div>
-          <figcaption>Figure 1. System block diagram.</figcaption>
+          <div class="table-wrap" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;">
+            <svg viewBox="0 0 760 330" role="img" aria-labelledby="bd-title bd-desc" style="display: block; width: 100%; min-width: 640px; height: auto;">
+              <title id="bd-title">Accelerator block diagram</title>
+              <desc id="bd-desc">Pixels go into an image buffer. Sixteen identical lanes, each a weight memory, a multiply-accumulate unit, and a shrink unit, take one input per clock cycle. Layer-1 results go into a hidden buffer and are fed back in for layer 2. A pick-biggest unit turns the ten layer-2 scores into the predicted digit. A controller state machine runs the rounds.</desc>
+              <style>
+                .bd-box   { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+                .bd-key   { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+                .bd-group { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 5 4; }
+                .bd-title { fill: var(--text); font-size: 14px; font-weight: 600; }
+                .bd-sub   { fill: var(--muted); font-size: 12px; }
+                .bd-line  { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+                .bd-head  { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+                .bd-dot   { fill: var(--muted); }
+              </style>
+              <defs>
+                <marker id="bd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path class="bd-head" d="M2 1L8 5L2 9"/>
+                </marker>
+              </defs>
+
+              <!-- Controller -->
+              <rect class="bd-box" x="200" y="14" width="518" height="50" rx="8"/>
+              <text class="bd-title" x="459" y="33" text-anchor="middle" dominant-baseline="central">Controller (state machine)</text>
+              <text class="bd-sub" x="459" y="51" text-anchor="middle" dominant-baseline="central">8 rounds of layer 1, then 1 round of layer 2, then pick the biggest score</text>
+              <line class="bd-line" x1="417" y1="64" x2="417" y2="85" marker-end="url(#bd-arrow)"/>
+              <line class="bd-line" x1="659" y1="64" x2="659" y2="105" marker-end="url(#bd-arrow)"/>
+
+              <!-- Input and image buffer -->
+              <text class="bd-sub" x="32" y="204" text-anchor="middle" dominant-baseline="central">pixels</text>
+              <line class="bd-line" x1="8" y1="217" x2="56" y2="217" marker-end="url(#bd-arrow)"/>
+              <rect class="bd-box" x="60" y="192" width="130" height="50" rx="8"/>
+              <text class="bd-title" x="125" y="211" text-anchor="middle" dominant-baseline="central">Image buffer</text>
+              <text class="bd-sub" x="125" y="229" text-anchor="middle" dominant-baseline="central">784 × 8-bit</text>
+              <line class="bd-line" x1="190" y1="217" x2="296" y2="217" marker-end="url(#bd-arrow)"/>
+              <circle class="bd-dot" cx="232" cy="217" r="3.5"/>
+
+              <!-- One of the 16 lanes -->
+              <rect class="bd-group" x="272" y="88" width="290" height="168" rx="10"/>
+              <text class="bd-sub" x="284" y="104" dominant-baseline="central">16 identical lanes (1 shown)</text>
+              <rect class="bd-box" x="300" y="116" width="120" height="50" rx="8"/>
+              <text class="bd-title" x="360" y="135" text-anchor="middle" dominant-baseline="central">Weight ROM</text>
+              <text class="bd-sub" x="360" y="153" text-anchor="middle" dominant-baseline="central">6,400 × 8-bit</text>
+              <line class="bd-line" x1="360" y1="166" x2="360" y2="188" marker-end="url(#bd-arrow)"/>
+              <rect class="bd-key" x="300" y="192" width="120" height="50" rx="8"/>
+              <text class="bd-title" x="360" y="211" text-anchor="middle" dominant-baseline="central">MAC</text>
+              <text class="bd-sub" x="360" y="229" text-anchor="middle" dominant-baseline="central">running total</text>
+              <line class="bd-line" x1="420" y1="217" x2="436" y2="217" marker-end="url(#bd-arrow)"/>
+              <rect class="bd-box" x="440" y="192" width="110" height="50" rx="8"/>
+              <text class="bd-title" x="495" y="211" text-anchor="middle" dominant-baseline="central">Shrink</text>
+              <text class="bd-sub" x="495" y="229" text-anchor="middle" dominant-baseline="central">ReLU, &gt;&gt;13, cap</text>
+
+              <!-- Hidden buffer, and the loop back for layer 2 -->
+              <line class="bd-line" x1="550" y1="217" x2="596" y2="217" marker-end="url(#bd-arrow)"/>
+              <rect class="bd-box" x="600" y="192" width="118" height="50" rx="8"/>
+              <text class="bd-title" x="659" y="211" text-anchor="middle" dominant-baseline="central">Hidden buffer</text>
+              <text class="bd-sub" x="659" y="229" text-anchor="middle" dominant-baseline="central">128 × 8-bit</text>
+              <path class="bd-line" d="M659 242 V292 H232 V223" marker-end="url(#bd-arrow)"/>
+              <text class="bd-sub" x="446" y="312" text-anchor="middle" dominant-baseline="central">Layer 2 reuses the lanes: hidden values go back in</text>
+
+              <!-- Picking the answer -->
+              <line class="bd-line" x1="562" y1="133" x2="596" y2="133" marker-end="url(#bd-arrow)"/>
+              <rect class="bd-box" x="600" y="108" width="118" height="50" rx="8"/>
+              <text class="bd-title" x="659" y="127" text-anchor="middle" dominant-baseline="central">Pick biggest</text>
+              <text class="bd-sub" x="659" y="145" text-anchor="middle" dominant-baseline="central">picks the digit</text>
+              <line class="bd-line" x1="718" y1="133" x2="752" y2="133" marker-end="url(#bd-arrow)"/>
+              <text class="bd-sub" x="737" y="120" text-anchor="middle" dominant-baseline="central">digit</text>
+            </svg>
+          </div>
+          <figcaption>Figure 1. Engine architecture. One of the 16 identical lanes is shown. The controller runs 8 rounds of layer 1, then reuses the same lanes for layer 2.</figcaption>
         </figure>
         <h3>Key design decisions</h3>
         <div class="table-wrap">
@@ -126,8 +225,36 @@
               <tr><th>Decision</th><th>Options considered</th><th>Choice &amp; reasoning</th></tr>
             </thead>
             <tbody>
-              <tr><td>—</td><td>—</td><td>—</td></tr>
-              <tr><td>—</td><td>—</td><td>—</td></tr>
+              <tr>
+                <td>Number format</td>
+                <td>32-bit float, 16-bit fixed point, 8-bit integer</td>
+                <td>8-bit integers from −127 to 127. Weights are 4× smaller and the multipliers are tiny, and accuracy dropped by only 0.01%.</td>
+              </tr>
+              <tr>
+                <td>Shrinking values between layers</td>
+                <td>Multiply by a scale factor, or shift right by a power of two</td>
+                <td>ReLU, then shift right by N bits, then cap at 127. A shift costs nothing in hardware (it's just wiring). N&nbsp;=&nbsp;13 was picked automatically in Python.</td>
+              </tr>
+              <tr>
+                <td>Amount of parallelism</td>
+                <td>1 MAC, 16 MACs reused over 8 rounds, or 128 MACs (one per neuron)</td>
+                <td>16 MACs. About 16× fewer cycles than a single MAC, while keeping the design small. The MAC count is a parameter, so 8 and 32 can be compared later.</td>
+              </tr>
+              <tr>
+                <td>Weight storage</td>
+                <td>External SDRAM, or on-chip memory</td>
+                <td>One on-chip memory per lane (6,400 weights each), so all 16 lanes can read a weight every cycle without waiting on each other.</td>
+              </tr>
+              <tr>
+                <td>Biases</td>
+                <td>Keep biases, or train without them</td>
+                <td>Trained without biases. It keeps the hardware simpler, and the network still reached 97.47%.</td>
+              </tr>
+              <tr>
+                <td>Verification</td>
+                <td>Check only the final digit, or every intermediate value</td>
+                <td>Every intermediate value. A wrong design can land on the right digit by luck, and per-layer checks show exactly where a bug is.</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -136,27 +263,71 @@
       <!-- ===================== IMPLEMENTATION ===================== -->
       <section id="implementation">
         <h2>Implementation</h2>
-        <p class="placeholder">
-          Walk through how you built it, subsystem by subsystem. Include short code snippets,
-          schematics, or screenshots where they help.
-        </p>
-        <pre><code>// Optional: short, relevant code snippet</code></pre>
+        <h3>Software: training, quantization, and the golden model</h3>
+        <ul>
+          <li><strong>Training (PyTorch).</strong> A 784 → 128 → 10 network trained for 5 epochs reached 97.47% on the 10,000 MNIST test images.</li>
+          <li><strong>Quantization (NumPy).</strong> Each layer's weights are scaled so the largest becomes ±127, then rounded. Pixels are shifted from 0–255 down to 0–127 so every input fits in a signed 8-bit number.</li>
+          <li><strong>Golden model.</strong> An integer-only Python version of the network does exactly the math the hardware does. A sweep picked the shift amount (N&nbsp;=&nbsp;13) using training images, keeping the test score fair. It scores 97.46%.</li>
+          <li><strong>Weight export.</strong> A script writes 16 memory files in the exact order each lane reads them, then replays the hardware's read pattern in Python to confirm the layout before any Verilog runs.</li>
+        </ul>
+        <figure>
+          <img src="../assets/fpga-nn-accelerator/02-python-pipeline.png" alt="Terminal output: training reaches 97.47% accuracy, the 8-bit golden model reaches 97.46% with shift N = 13, and the weight export's layout check passes" loading="lazy">
+          <figcaption>Figure 2. The software pipeline: training, 8-bit conversion (0.01% accuracy lost), and the weight export's layout check.</figcaption>
+        </figure>
+
+        <h3>Hardware: Verilog</h3>
+        <ul>
+          <li><strong>Weight ROM:</strong> on-chip memory loaded from the exported files. Like real FPGA memory, it returns data one clock cycle after it's asked.</li>
+          <li><strong>MAC:</strong> multiplies a signed 8-bit input by a signed 8-bit weight and adds it to a 32-bit running total. The largest total seen was 571,032, far below the 32-bit limit.</li>
+          <li><strong>Shrink:</strong> ReLU, a right shift by 13, and a cap at 127. It has no clock, so its output updates as soon as the total changes.</li>
+          <li><strong>Engine:</strong> the image buffer, 16 lanes, hidden buffer, controller state machine, pick-biggest step, and a cycle counter.</li>
+        </ul>
+        <pre><code>// MAC: one multiply-add per clock cycle
+always @(posedge clk)
+    if (clear)       total &lt;= 0;
+    else if (enable) total &lt;= total + pixel * weight;
+
+// Shrink: ReLU, divide by 2^13, cap at 127
+wire [31:0] relu    = total[31] ? 32'd0 : total;
+wire [31:0] shifted = relu &gt;&gt; SHIFT_N;
+assign out = (shifted &gt; 127) ? 8'd127 : shifted[7:0];</code></pre>
+        <figure>
+          <a href="../assets/fpga-nn-accelerator/05-mac-waveform-closeup.png" target="_blank" rel="noopener"><img src="../assets/fpga-nn-accelerator/05-mac-waveform-closeup.png" alt="ModelSim waveform close-up: the weight address counts up each clock tick while new pixel and weight values enter the MAC" loading="lazy"></a>
+          <figcaption>Figure 3. One MAC, tick by tick: every 20&nbsp;ns, the next weight address, pixel, and weight arrive, and the running total updates. Click to enlarge.</figcaption>
+        </figure>
       </section>
 
       <!-- ===================== TESTING ===================== -->
       <section id="testing">
         <h2>Testing &amp; Validation</h2>
-        <p class="placeholder">
-          How did you verify it works? Describe testbenches, test datasets, measurement setup,
-          and the reference you compared against.
+        <p>
+          The golden model acts as an answer key. For 10 MNIST test images, it records every value the hardware
+          should produce: all 128 layer-1 outputs, all 10 scores, and the final digit. Each Verilog testbench
+          feeds the same images into the design in ModelSim and compares every number, so a mismatch points
+          straight to the layer and round where it happened.
         </p>
+        <ul>
+          <li><strong>Weight layout check (Python):</strong> replays the hardware's read order over the exported memory files and matches the golden model.</li>
+          <li><strong>Single-lane test:</strong> one MAC, its weight memory, and the shrink unit, checked on its 8 neurons and 1 digit score for every image. All 90 checks passed.</li>
+          <li><strong>Full-engine test:</strong> all 1,280 hidden values, 100 scores, and 10 digits match the golden model (shown at the top of this page).</li>
+        </ul>
+        <figure>
+          <img src="../assets/fpga-nn-accelerator/03-mac-unit-test-pass.png" alt="ModelSim transcript: PASS, MAC 0 matched the golden model on all 90 checks" loading="lazy">
+          <figcaption>Figure 4. The single-lane test passing all 90 checks.</figcaption>
+        </figure>
+        <figure>
+          <a href="../assets/fpga-nn-accelerator/04-mac-waveform-full.png" target="_blank" rel="noopener"><img src="../assets/fpga-nn-accelerator/04-mac-waveform-full.png" alt="ModelSim waveform of one MAC over the whole test, with the running total drawn as a line that rises and falls" loading="lazy"></a>
+          <figcaption>Figure 5. One MAC over the whole test. The running total rises and falls as each of its 90 calculations sweeps across an image, then resets for the next one. Click to enlarge.</figcaption>
+        </figure>
       </section>
 
       <!-- ===================== RESULTS ===================== -->
       <section id="results">
         <h2>Results</h2>
-        <p class="placeholder">
-          Present the final numbers and compare them against your objective and a baseline.
+        <p>
+          In simulation, the accelerator meets every target so far. The 8-bit design keeps the float model's
+          accuracy, and 16 MACs cut the cycle count about 16× compared with a single MAC. It also matches the
+          golden model on every value checked. On-board measurements come next.
         </p>
         <div class="table-wrap">
           <table>
@@ -164,23 +335,25 @@
               <tr><th>Metric</th><th>Baseline</th><th>Result</th><th>Target</th></tr>
             </thead>
             <tbody>
-              <tr><td>—</td><td>—</td><td>—</td><td>—</td></tr>
-              <tr><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+              <tr><td>Test accuracy (10,000 MNIST images)</td><td>97.47% (32-bit float model)</td><td>97.46% (8-bit integer model)</td><td>Within 1% of float</td></tr>
+              <tr><td>Weight storage</td><td>≈ 407&nbsp;KB (32-bit floats)</td><td>≈ 102&nbsp;KB (8-bit integers)</td><td>Fits in on-chip memory</td></tr>
+              <tr><td>Clock cycles per digit</td><td>≈ 102,000 with 1 MAC (calculated)</td><td>6,437 with 16 MACs (simulated)</td><td>—</td></tr>
+              <tr><td>Time per digit at 50&nbsp;MHz</td><td>≈ 2.04&nbsp;ms with 1 MAC</td><td>128.7&nbsp;µs</td><td>Under 1&nbsp;ms</td></tr>
+              <tr><td>Match with Python reference</td><td>—</td><td>1,390 of 1,390 values (10 images)</td><td>100%</td></tr>
             </tbody>
           </table>
         </div>
-        <figure>
-          <div class="figure-placeholder">Results chart or measurement plot</div>
-          <figcaption>Figure 2. Results.</figcaption>
-        </figure>
       </section>
 
       <!-- ===================== CHALLENGES ===================== -->
       <section id="challenges">
         <h2>Challenges &amp; Lessons Learned</h2>
         <ul>
-          <li class="placeholder">Challenge you hit, how you diagnosed it, and how you solved it</li>
-          <li class="placeholder">What you would do differently next time</li>
+          <li><strong>Memory timing.</strong> On-chip memory returns data one clock cycle after it's asked, so a pixel sent in the same cycle as its weight's address would be paired with the wrong weight. I gave the image buffer the same one-cycle delay as the weight memories and delayed the MAC's "add now" signal by one cycle, so every pixel and weight arrive together.</li>
+          <li><strong>Getting 16 memories in the right order.</strong> Each lane needs its weights in exactly the order the controller reads them, and a mistake here produces garbage that's hard to trace. Generating the files in Python and replaying the hardware's read pattern there caught layout problems before any Verilog ran.</li>
+          <li><strong>Choosing the shift amount.</strong> Too small a shift makes values pile up at the 127 cap, and too large makes them round to zero. Sweeping N from 0 to 19 on training images found the best value (13), without tuning on the test set.</li>
+          <li><strong>Compare against the model, not the label.</strong> The network misreads test image 8 (a 5 that looks like a 6), and the hardware gives the same wrong answer. Because the tests compare against the golden model rather than the true digit, that counts as a pass, and it's strong evidence the hardware copies the model's math exactly.</li>
+          <li><strong>Build small, then scale.</strong> Testing a single lane before building all 16 confirmed the timing in a design small enough to debug easily, and the full engine passed on its first run.</li>
         </ul>
       </section>
 
@@ -188,7 +361,11 @@
       <section id="future-work">
         <h2>Future Work</h2>
         <ul>
-          <li class="placeholder">Next improvement or extension</li>
+          <li>Run the design on the DE2-115: a UART link to stream images from a laptop, the answer on the 7-segment display, and pin assignments in Quartus.</li>
+          <li>Run all 10,000 MNIST test images on the board and confirm every answer matches the golden model.</li>
+          <li>Measure real inference time with an on-chip cycle counter and an Analog Discovery 3 logic analyzer, and compare compute time with the time spent sending each image.</li>
+          <li>Record FPGA resource use and maximum clock speed in Quartus, then compare 8, 16, and 32 MACs.</li>
+          <li>Stretch goals: a 2D systolic array, adding biases back, or a small convolutional network.</li>
         </ul>
       </section>
 
