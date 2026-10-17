@@ -11,13 +11,14 @@
 
   <nav class="site-nav">
     <div class="container">
-      <a href="#top" class="brand">Kyle Rebello</a>
+      <a href="#top" class="brand"><span class="mark">KR</span><span class="name">Kyle Rebello</span></a>
       <ul>
         <li><a href="#about">About</a></li>
         <li><a href="#projects">Projects</a></li>
         <li><a href="#experience">Experience</a></li>
         <li><a href="#athletics">Athletics</a></li>
       </ul>
+      <a class="nav-cta" href="assets/Kyle_Rebello_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
     </div>
   </nav>
 
@@ -25,36 +26,40 @@
 
     <!-- ===================== ABOUT ===================== -->
     <section id="about" class="hero">
+      <p class="eyebrow">Computer Engineering (Co-op) · McMaster University</p>
       <h1>Kyle Rebello</h1>
-      <p class="subtitle">Computer Engineering (Co-op) @ McMaster University · Expected April 2029</p>
-      <p>
+      <p class="tagline">I build <em>hardware accelerators</em>, <em>GPU software</em>, and <em>ML systems</em>.</p>
+      <p class="intro">
         I'm a computer engineering student interested in hardware acceleration, edge AI, and
         building machine learning systems that hold up in production. I like working across the
         stack, from Verilog on an FPGA to CUDA kernels to the full-stack apps around ML models.
+        Expected graduation: April 2029.
       </p>
-      <p>
-        <strong>Awards:</strong> Dean's Honour List (2025), Faculty of Engineering Award of Excellence (2024)
-      </p>
+      <div class="chips">
+        <span class="chip">Dean's Honour List (2025)</span>
+        <span class="chip">Faculty of Engineering Award of Excellence (2024)</span>
+      </div>
       <div class="links">
-        <a href="mailto:andrekylerebello@gmail.com">Email</a>
-        <a href="https://linkedin.com/in/kyle-rebello" target="_blank" rel="noopener">LinkedIn</a>
-        <a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a>
-        <a href="assets/Kyle_Rebello_Resume.pdf" target="_blank" rel="noopener">Résumé (PDF)</a>
+        <a class="btn primary" href="mailto:andrekylerebello@gmail.com">Email me</a>
+        <a class="btn" href="https://linkedin.com/in/kyle-rebello" target="_blank" rel="noopener">LinkedIn <span class="arrow">↗</span></a>
+        <a class="btn" href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub <span class="arrow">↗</span></a>
+        <a class="btn" href="assets/Kyle_Rebello_Resume.pdf" target="_blank" rel="noopener">Résumé (PDF) <span class="arrow">↗</span></a>
       </div>
     </section>
 
     <!-- ===================== PROJECTS ===================== -->
     <section id="projects">
-      <h2 class="section-title">Projects</h2>
+      <h2 class="section-title"><span class="num">01</span>Projects</h2>
       <!--
         To add a project:
           1. Copy projects/_template.html to projects/your-project.html and fill it in.
           2. Copy one of the <a class="project-tile"> blocks below and point href at the new page.
+             Use status--progress or status--complete for the status label.
       -->
       <div class="project-grid">
 
-        <a class="project-tile" href="projects/fpga-nn-accelerator.html">
-          <span class="status">In progress</span>
+        <a class="project-tile card" href="projects/fpga-nn-accelerator.html">
+          <span class="status status--progress">In progress</span>
           <h3>INT-8 FPGA Neural Network Accelerator</h3>
           <div class="tags">
             <span class="tag">Verilog</span>
@@ -63,11 +68,11 @@
             <span class="tag">Quartus</span>
           </div>
           <p>An 8-bit neural network engine in Verilog that classifies handwritten digits, verified bit-for-bit against a Python reference in simulation.</p>
-          <span class="more">View project →</span>
+          <span class="more">View project <span>→</span></span>
         </a>
 
-        <a class="project-tile" href="projects/gpu-circuit-simulator.html">
-          <span class="status">Complete</span>
+        <a class="project-tile card" href="projects/gpu-circuit-simulator.html">
+          <span class="status status--complete">Complete</span>
           <h3>GPU Monte Carlo Circuit Simulator</h3>
           <div class="tags">
             <span class="tag">C++</span>
@@ -76,7 +81,7 @@
             <span class="tag">Python</span>
           </div>
           <p>A SPICE-style circuit simulator in CUDA that predicts how part tolerances affect a BJT amplifier, running 1,000,000 random builds in 2 seconds on a Jetson Nano.</p>
-          <span class="more">View project →</span>
+          <span class="more">View project <span>→</span></span>
         </a>
 
       </div>
@@ -84,55 +89,57 @@
 
     <!-- ===================== WORK EXPERIENCE ===================== -->
     <section id="experience">
-      <h2 class="section-title">Work Experience</h2>
+      <h2 class="section-title"><span class="num">02</span>Work Experience</h2>
 
-      <div class="entry has-logo">
-        <img class="entry-logo" src="assets/logos/acto.png" alt="ACTO logo">
-        <div class="entry-body">
-          <div class="entry-header">
-            <h3>ACTO</h3>
-            <span class="entry-meta">May 2026 – Present · Toronto, ON</span>
-          </div>
-          <p class="entry-role">AI Engineer Intern</p>
+      <div class="exp-grid">
+
+        <article class="exp-card card">
+          <header class="exp-head">
+            <img class="exp-logo" src="assets/logos/acto.png" alt="ACTO logo">
+            <div>
+              <h3>ACTO</h3>
+              <p class="exp-role">AI Engineer Intern</p>
+            </div>
+          </header>
+          <p class="exp-meta"><span>May 2026 – Present</span><span>Toronto, ON</span></p>
           <ul>
             <li>Cut median quote-build time 4× (from ~120 to 30 min) for 10+ sales reps by replacing a legacy Excel pricing calculator with a natural-language LLM sales agent.</li>
             <li>Ensured every quoted price is computed deterministically by architecting a hybrid system in which a deterministic pricing engine calculates all figures and the LLM only narrates them, confining hallucination and prompt-injection risk to explanatory text.</li>
             <li>Delivered citation-backed answers traceable to source documents by building a retrieval-augmented generation (RAG) pipeline over an Amazon OpenSearch Serverless vector index.</li>
             <li>Shipped the full-stack B2B platform hosting the agent, including SSO, three-tier role-based access control, PDF order-form generation, and token-secured proposal pages with engagement analytics.</li>
           </ul>
-        </div>
-      </div>
+        </article>
 
-      <div class="entry has-logo">
-        <img class="entry-logo" src="assets/logos/weever.png" alt="Weever logo">
-        <div class="entry-body">
-          <div class="entry-header">
-            <h3>Weever</h3>
-            <span class="entry-meta">Apr. 2026 – Present · Hamilton, ON</span>
-          </div>
-          <p class="entry-role">Machine Learning Engineer (Part-time Contract)</p>
+        <article class="exp-card card">
+          <header class="exp-head">
+            <img class="exp-logo" src="assets/logos/weever.png" alt="Weever logo">
+            <div>
+              <h3>Weever</h3>
+              <p class="exp-role">Machine Learning Engineer (Part-time Contract)</p>
+            </div>
+          </header>
+          <p class="exp-meta"><span>Apr. 2026 – Present</span><span>Hamilton, ON</span></p>
           <ul>
             <li>Enabled zero-configuration onboarding of any customer's operational logs by building a schema-agnostic Python pipeline (pandas, SciPy) that infers column types from content rather than names, with seeded, reproducible scoring.</li>
             <li>Segmented workforces into behavioural archetypes by engineering 45 features (submission cadence, evidence quality, measurement consistency) and selecting between k-means and Gaussian mixture models using silhouette scores in scikit-learn.</li>
             <li>Gave managers a ranked watchlist of workers showing engagement drift by building a composite risk score that compares each worker's output, documentation quality, and work patterns against their own baseline and their team's trend.</li>
             <li>Let managers query results in plain English by shipping the analytics layer as a self-contained local app with an MCP server for LLM-based natural-language querying.</li>
           </ul>
-        </div>
+        </article>
+
       </div>
     </section>
 
     <!-- ===================== ATHLETICS ===================== -->
     <section id="athletics">
-      <h2 class="section-title">Athletics</h2>
+      <h2 class="section-title"><span class="num">03</span>Athletics</h2>
 
-      <div class="entry has-logo">
-        <img class="entry-logo entry-logo--badge" src="assets/logos/mcmaster-dragon-boat.png" alt="McMaster Dragon Boat logo">
-        <div class="entry-body">
-          <div class="entry-header">
-            <h3>McMaster Dragon Boat Competitive Rowing Team</h3>
-            <span class="entry-meta"><!-- TODO -->20XX – Present · Hamilton, ON</span>
-          </div>
-          <p class="entry-role">Team Member</p>
+      <article class="feature-card card">
+        <img class="badge" src="assets/logos/mcmaster-dragon-boat.png" alt="McMaster Dragon Boat logo">
+        <div>
+          <h3>McMaster Dragon Boat Competitive Rowing Team</h3>
+          <p class="exp-role">Team Member</p>
+          <p class="exp-meta"><span><!-- TODO -->20XX – Present</span><span>Hamilton, ON</span></p>
           <p>
             Member of McMaster's competitive dragon boat team, training on and off the water and
             racing with the crew through the season.
@@ -142,14 +149,40 @@
             and any results or team roles.
           </p>
         </div>
-      </div>
+      </article>
     </section>
 
   </main>
 
   <footer class="container">
-    © 2026 Kyle Rebello
+    <span>© 2026 Kyle Rebello</span>
+    <span class="footer-links">
+      <a href="mailto:andrekylerebello@gmail.com">Email</a>
+      <a href="https://linkedin.com/in/kyle-rebello" target="_blank" rel="noopener">LinkedIn</a>
+      <a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a>
+      <a href="#top">Back to top ↑</a>
+    </span>
   </footer>
+
+  <script>
+    // Nav: add a border once scrolled, and highlight the section currently in view
+    (function () {
+      var nav = document.querySelector('.site-nav');
+      var links = document.querySelectorAll('.site-nav ul a');
+      function onScroll() {
+        nav.classList.toggle('scrolled', window.scrollY > 8);
+        var current = null;
+        links.forEach(function (a) {
+          var s = document.querySelector(a.getAttribute('href'));
+          if (s && s.getBoundingClientRect().top <= 120) current = a;
+        });
+        if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) current = links[links.length - 1];
+        links.forEach(function (a) { a.classList.toggle('active', a === current); });
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+  </script>
 
 </body>
 </html>
