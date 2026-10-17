@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Monte Carlo Circuit Simulator — Kyle Rebello</title>
+  <meta name="description" content="A SPICE-style circuit simulator in C++ and CUDA that predicts how part tolerances affect a BJT amplifier, running 1,000,000 random builds in 2 seconds on a Jetson Nano and matching LTspice.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="container">
+      <a href="../index.html" class="brand">Kyle Rebello</a>
+      <ul>
+        <li><a href="../index.html#about">About</a></li>
+        <li><a href="../index.html#projects">Projects</a></li>
+        <li><a href="../index.html#experience">Experience</a></li>
+        <li><a href="../index.html#athletics">Athletics</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+    <a class="back-link" href="../index.html#projects">← All projects</a>
+
+    <!-- ===================== TITLE ===================== -->
+    <header class="project-header">
+      <h1>GPU Monte Carlo Circuit Simulator</h1>
+      <p class="summary">A SPICE-style circuit simulator in C++ and CUDA that predicts how real-world part tolerances change a BJT amplifier's gain, running 1,000,000 random builds in 2 seconds on a Jetson Nano while matching LTspice.</p>
+
+      <div class="tags">
+        <span class="tag">C++</span>
+        <span class="tag">CUDA</span>
+        <span class="tag">OpenMP</span>
+        <span class="tag">LTspice</span>
+        <span class="tag">Python</span>
+      </div>
+
+      <dl class="meta-grid">
+        <div>
+          <dt>Timeline</dt>
+          <dd>Oct. 2026</dd>
+        </div>
+        <div>
+          <dt>Role</dt>
+          <dd>Solo project</dd>
+        </div>
+        <div>
+          <dt>Hardware / Platform</dt>
+          <dd>NVIDIA Jetson Nano (128-core Maxwell GPU)</dd>
+        </div>
+        <div>
+          <dt>Links</dt>
+          <!-- TODO: point this at the project's own repo once it's public -->
+          <dd><a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a></dd>
+        </div>
+      </dl>
+
+      <figure>
+        <img src="../assets/gpu-circuit-simulator/01-benchmark-6b.png" alt="Jetson Nano terminal: the float version runs 504,948 builds per second, 6 times the double version, with a biggest difference of 0.00134 percent; the fastest GPU method is 3.2 times the fastest CPU method, and 20.8 times the first GPU version">
+        <figcaption>The final benchmark on the Jetson Nano: the optimized GPU version simulates 504,948 builds per second, 20.8× the first GPU version and 3.2× all four CPU cores, while agreeing with full double precision to within 0.0013%.</figcaption>
+      </figure>
+    </header>
+
+    <div class="project-body">
+
+      <!-- ===================== OVERVIEW ===================== -->
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>
+          Real electronic parts are never exactly their labeled value, so no two builds of a circuit behave
+          quite the same. I wrote my own circuit simulator for a one-transistor amplifier, checked it against
+          LTspice, and moved it onto a GPU, where thousands of threads each simulate a different random build.
+          After optimizing it, a Jetson Nano predicts the amplifier's spread of gains across 1,000,000 builds
+          in about 2 seconds, a job that would take LTspice nearly 12 hours at the speed I measured.
+        </p>
+        <div class="metrics">
+          <div class="metric"><div class="value">2.0&nbsp;s</div><div class="label">For 1,000,000 random builds on the Jetson Nano's GPU</div></div>
+          <div class="metric"><div class="value">20.8×</div><div class="label">Faster than my first GPU version, after optimizing</div></div>
+          <div class="metric"><div class="value">3.2×</div><div class="label">Faster than all 4 CPU cores, each using its fastest method</div></div>
+          <div class="metric"><div class="value">0.005%</div><div class="label">Largest difference from LTspice on the nominal circuit</div></div>
+        </div>
+      </section>
+
+      <!-- ===================== OBJECTIVE & PROBLEM ===================== -->
+      <section id="objective">
+        <h2>Objective &amp; Problem Statement</h2>
+        <h3>Problem</h3>
+        <p>
+          A "1&nbsp;kΩ" resistor might really be 950 or 1,050&nbsp;Ω, and two transistors with the same part
+          number can differ in current gain by 3×. To see how a design holds up, engineers run Monte Carlo
+          analysis: they simulate the circuit many times, each time with every part's value randomly rolled
+          within its tolerance. Circuit simulators run these builds one after another, so large studies are
+          slow. LTspice managed 24 builds per second on my laptop.
+        </p>
+        <h3>Objective</h3>
+        <p>
+          Build a simulator for a BJT amplifier that matches LTspice's accuracy, then run its Monte Carlo
+          analysis on a GPU (one random build per thread), aiming for a million builds in a few seconds on a
+          small Jetson Nano board.
+        </p>
+      </section>
+
+      <!-- ===================== REQUIREMENTS ===================== -->
+      <section id="requirements">
+        <h2>Requirements &amp; Constraints</h2>
+        <ul>
+          <li>Match LTspice on the nominal circuit (DC voltages, gain, and low cutoff frequency) to within 0.01%.</li>
+          <li>Match LTspice's Monte Carlo results (averages and 95% ranges) to within 1%.</li>
+          <li>Give every build reproducible random parts, so the CPU and GPU versions can be compared build by build.</li>
+          <li>Run 1,000,000 builds in seconds on the Jetson Nano, whose GPU runs 64-bit math at only 1/32 the speed of its 32-bit math.</li>
+          <li>Benchmark fairly: compare the GPU against all four CPU cores, not just one.</li>
+        </ul>
+      </section>
+
+      <!-- ===================== BACKGROUND ===================== -->
+      <section id="background">
+        <h2>Background</h2>
+        <p>
+          The circuit is a common-emitter amplifier built around one 2N3904 transistor. On paper it makes
+          signals 8.57× bigger (18.7&nbsp;dB) from about 10&nbsp;Hz to 29&nbsp;MHz, with the transistor drawing
+          0.91&nbsp;mA. Each simulated build rolls every part's value within these tolerances:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Part</th><th>Nominal value</th><th>Tolerance in each random build</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>R1, R2 (bias resistors)</td><td>33&nbsp;kΩ, 10&nbsp;kΩ</td><td>±5%</td></tr>
+              <tr><td>RC (collector resistor)</td><td>2.2&nbsp;kΩ</td><td>±5%</td></tr>
+              <tr><td>RE1, RE2 (emitter resistors)</td><td>220&nbsp;Ω, 270&nbsp;Ω</td><td>±5%</td></tr>
+              <tr><td>C1, C2 (coupling capacitors)</td><td>10&nbsp;µF</td><td>±20% (electrolytic)</td></tr>
+              <tr><td>CE (emitter bypass capacitor)</td><td>100&nbsp;µF</td><td>±20% (electrolytic)</td></tr>
+              <tr><td>Q1 (2N3904 transistor)</td><td>Current gain ≈ 134 in this circuit</td><td>Anywhere from 100 to 300 (the datasheet range)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== DESIGN ===================== -->
+      <section id="design">
+        <h2>Design &amp; Architecture</h2>
+        <p>
+          Each build goes through the same five steps, and each GPU thread runs all five for its own build.
+          The same C++ code compiles for both the CPU and the GPU, so every GPU answer can be checked against
+          the CPU's answer for the identical circuit.
+        </p>
+        <figure>
+          <div class="table-wrap" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;">
+            <svg viewBox="0 0 800 158" role="img" aria-labelledby="pd-title pd-desc" style="display: block; width: 100%; min-width: 640px; height: auto;">
+              <title id="pd-title">The five steps of one simulated build</title>
+              <desc id="pd-desc">One GPU thread handles one build: it rolls random part values from the build number, finds the DC bias point with Newton's method, folds the transistor into a simple block, runs the AC frequency sweep with 5 by 5 complex solves, and finds the gain and low cutoff with the Illinois search. A million threads run in about two seconds.</desc>
+              <style>
+                .pd-box   { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+                .pd-key   { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+                .pd-group { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 5 4; }
+                .pd-title { fill: var(--text); font-size: 14px; font-weight: 600; }
+                .pd-sub   { fill: var(--muted); font-size: 12px; }
+                .pd-line  { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+                .pd-head  { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+              </style>
+              <defs>
+                <marker id="pd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path class="pd-head" d="M2 1L8 5L2 9"/>
+                </marker>
+              </defs>
+              <rect class="pd-group" x="4" y="10" width="792" height="140" rx="10"/>
+              <text class="pd-sub" x="18" y="30" dominant-baseline="central">One GPU thread = one random build. 1,000,000 threads finish in about 2 seconds.</text>
+
+              <rect class="pd-box" x="14" y="62" width="140" height="62" rx="8"/>
+              <text class="pd-title" x="84" y="84" text-anchor="middle" dominant-baseline="central">Random parts</text>
+              <text class="pd-sub" x="84" y="104" text-anchor="middle" dominant-baseline="central">from the build #</text>
+              <line class="pd-line" x1="154" y1="93" x2="170" y2="93" marker-end="url(#pd-arrow)"/>
+
+              <rect class="pd-box" x="174" y="62" width="140" height="62" rx="8"/>
+              <text class="pd-title" x="244" y="84" text-anchor="middle" dominant-baseline="central">DC bias point</text>
+              <text class="pd-sub" x="244" y="104" text-anchor="middle" dominant-baseline="central">Newton's method</text>
+              <line class="pd-line" x1="314" y1="93" x2="330" y2="93" marker-end="url(#pd-arrow)"/>
+
+              <rect class="pd-key" x="334" y="62" width="140" height="62" rx="8"/>
+              <text class="pd-title" x="404" y="84" text-anchor="middle" dominant-baseline="central">Transistor block</text>
+              <text class="pd-sub" x="404" y="104" text-anchor="middle" dominant-baseline="central">folded once</text>
+              <line class="pd-line" x1="474" y1="93" x2="490" y2="93" marker-end="url(#pd-arrow)"/>
+
+              <rect class="pd-box" x="494" y="62" width="140" height="62" rx="8"/>
+              <text class="pd-title" x="564" y="84" text-anchor="middle" dominant-baseline="central">AC sweep</text>
+              <text class="pd-sub" x="564" y="104" text-anchor="middle" dominant-baseline="central">5×5 complex solves</text>
+              <line class="pd-line" x1="634" y1="93" x2="650" y2="93" marker-end="url(#pd-arrow)"/>
+
+              <rect class="pd-box" x="654" y="62" width="136" height="62" rx="8"/>
+              <text class="pd-title" x="722" y="84" text-anchor="middle" dominant-baseline="central">Gain + cutoff</text>
+              <text class="pd-sub" x="722" y="104" text-anchor="middle" dominant-baseline="central">Illinois search</text>
+            </svg>
+          </div>
+          <figcaption>Figure 1. What one GPU thread does for its build. The transistor block (highlighted) is the step that made 32-bit math accurate enough to use.</figcaption>
+        </figure>
+        <h3>Key design decisions</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Decision</th><th>Options considered</th><th>Choice &amp; reasoning</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Random part values</td>
+                <td>A random-number library, or values computed from each build's number</td>
+                <td>Computed from the build number with a hash function. Build #5 always gets the same parts on the CPU and the GPU, so results can be compared build by build.</td>
+              </tr>
+              <tr>
+                <td>Solver</td>
+                <td>A general-purpose SPICE engine, or one written for this circuit</td>
+                <td>Written for this circuit: Kirchhoff's current law at each node, the standard SPICE (Gummel-Poon) transistor model, and Newton's method, with voltage steps limited to 0.1&nbsp;V so it always converges.</td>
+              </tr>
+              <tr>
+                <td>Finding the low cutoff</td>
+                <td>Halve the search range repeatedly, or estimate the crossing point</td>
+                <td>The Illinois method, which estimates where the gain crosses the target. It needs about 12 gain calculations instead of 40.</td>
+              </tr>
+              <tr>
+                <td>Equations per frequency</td>
+                <td>7 unknowns (including two nodes inside the transistor), or fold those in first</td>
+                <td>Fold the transistor's tiny internal resistors into a 3-terminal block once per build, leaving 5 unknowns per frequency. It's faster, and it removed the 1&nbsp;Ω resistor that made 32-bit math lose accuracy.</td>
+              </tr>
+              <tr>
+                <td>Number format on the GPU</td>
+                <td>64-bit (double) or 32-bit (float)</td>
+                <td>32-bit, since the Nano's GPU runs it 32× faster. The largest difference from 64-bit results was 0.0013%, thousands of times smaller than the spread being predicted.</td>
+              </tr>
+              <tr>
+                <td>Benchmarking</td>
+                <td>GPU vs. one CPU core, or vs. all four</td>
+                <td>All four cores, each running its own fastest version. Comparing against one core would have overstated the speedup about 4×.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===================== IMPLEMENTATION ===================== -->
+      <section id="implementation">
+        <h2>Implementation</h2>
+        <ol>
+          <li><strong>Answer key.</strong> Simulated the nominal amplifier in LTspice to get the correct bias voltages, gain, and frequency response.</li>
+          <li><strong>DC solver (C++).</strong> Wrote the circuit's six current-balance equations and solved them with Newton's method. It converges in 5 steps and matches LTspice to within 0.0002%.</li>
+          <li><strong>AC gain (C++).</strong> Linearized the transistor at its bias point and solved the circuit at any frequency with complex nodal analysis. It matches LTspice's gain and low cutoff to within 0.005%.</li>
+          <li><strong>Monte Carlo on the CPU.</strong> Ran 10,000 random builds and compared their spread with LTspice running 1,000 of its own.</li>
+          <li><strong>Port to CUDA.</strong> The same functions compile for both CPU and GPU. Every GPU thread simulates one build, and the CPU re-checks the first 5,000.</li>
+          <li><strong>Optimization.</strong> Removed repeated work per frequency, switched to the faster cutoff search, folded in the transistor block, and moved to 32-bit math, re-checking every build at each stage.</li>
+        </ol>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/02-ltspice-gain-plot.png" alt="LTspice frequency response: gain rises from 4 dB at 1 Hz to a flat 18.7 dB from about 100 Hz to 10 MHz, then falls" loading="lazy">
+          <figcaption>Figure 2. The answer key: LTspice's frequency response for the nominal amplifier, flat at 18.7&nbsp;dB (8.57×).</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/03-dc-solver-vs-ltspice.png" alt="Terminal output: the C++ DC solver's base, emitter, and collector voltages and collector current match LTspice within 0.0002 percent" loading="lazy">
+          <figcaption>Figure 3. My DC solver against LTspice: every voltage matches to within 0.0002%.</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/04-gain-vs-ltspice.png" alt="Terminal output: the simulator's gain at 1 kHz, gain at 10 Hz, and low cutoff frequency match the answer key within 0.005 percent" loading="lazy">
+          <figcaption>Figure 4. Adding the frequency sweep: gain at 1&nbsp;kHz, gain at 10&nbsp;Hz, and the low cutoff all match.</figcaption>
+        </figure>
+        <p>The GPU part itself is short. Each thread works out which build it owns and simulates it:</p>
+        <pre><code>__global__ void simulate_builds(long long first, int count, double *gain, double *f_low) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;      // this thread's build
+    if (i &lt; count)
+        simulate_one(first + i, gain[i], f_low[i]);     // same function the CPU runs
+}</code></pre>
+      </section>
+
+      <!-- ===================== TESTING ===================== -->
+      <section id="testing">
+        <h2>Testing &amp; Validation</h2>
+        <ul>
+          <li><strong>Nominal circuit vs. LTspice:</strong> DC voltages within 0.0002%, gain within 0.001%, low cutoff within 0.005%.</li>
+          <li><strong>Monte Carlo vs. LTspice:</strong> average gain within 0.03% and average low cutoff within 0.14%. The 95% gain ranges were 7.98–9.27× (mine) and 7.97–9.29× (LTspice).</li>
+          <li><strong>GPU vs. CPU, build by build:</strong> the first 5,000 GPU builds matched the CPU to within 6×10<sup>-11</sup>, and the first 10,000 reproduced the laptop's results exactly.</li>
+          <li><strong>Every optimization re-checked:</strong> each faster version was compared with the previous one on all 1,000,000 builds before moving on.</li>
+        </ul>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/05-monte-carlo-vs-ltspice.png" alt="Two overlaid histograms of gain at 1 kHz and low cutoff frequency, one from my simulator with 10,000 builds and one from LTspice with 1,000 builds, with closely matching shapes" loading="lazy">
+          <figcaption>Figure 5. The spread of results from my simulator (10,000 builds) and LTspice (1,000 builds) line up.</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/06-gpu-million-builds.png" alt="Jetson Nano terminal: the first GPU version runs 1,000,000 builds in 41.25 seconds, the CPU check matches all 5,000 builds, and the first 10,000 builds reproduce the laptop's ranges" loading="lazy">
+          <figcaption>Figure 6. The first GPU version: a million builds in 41&nbsp;s, with every checked build matching the CPU.</figcaption>
+        </figure>
+      </section>
+
+      <!-- ===================== RESULTS ===================== -->
+      <section id="results">
+        <h2>Results</h2>
+        <p>
+          The optimized simulator met every target. It matches LTspice and runs a million builds in about
+          2&nbsp;seconds. The table tracks the speed of each version, measured on 1,000,000 builds.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Version</th><th>Runs on</th><th>Builds per second</th><th>1,000,000 builds take</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>LTspice's Monte Carlo</td><td>Laptop CPU</td><td>24</td><td>≈ 11.6 hours (calculated)</td></tr>
+              <tr><td>First GPU version (64-bit)</td><td>Jetson GPU</td><td>24,242</td><td>41.3&nbsp;s</td></tr>
+              <tr><td>Less repeated work + faster cutoff search</td><td>Jetson GPU</td><td>83,992</td><td>11.9&nbsp;s</td></tr>
+              <tr><td>+ transistor block (64-bit)</td><td>Jetson GPU</td><td>140,200</td><td>7.1&nbsp;s</td></tr>
+              <tr><td><strong>+ 32-bit math</strong></td><td>Jetson GPU</td><td><strong>504,948</strong></td><td><strong>2.0&nbsp;s</strong></td></tr>
+              <tr><td>Fastest CPU version (all 4 cores)</td><td>Jetson CPU</td><td>159,019</td><td>6.3&nbsp;s</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure>
+          <div class="table-wrap" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;">
+            <svg viewBox="0 0 760 214" role="img" aria-labelledby="sp-title sp-desc" style="display: block; width: 100%; min-width: 600px; height: auto;">
+              <title id="sp-title">Builds per second at each stage</title>
+              <desc id="sp-desc">Horizontal bars of builds per second: first GPU version 24,242; smarter math 83,992; transistor block 140,200; fastest CPU with all 4 cores 159,019; 32-bit GPU version 504,948.</desc>
+              <style>
+                .sp-label { fill: var(--text); font-size: 13px; }
+                .sp-value { fill: var(--muted); font-size: 13px; }
+                .sp-gpu   { fill: var(--accent); opacity: 0.45; }
+                .sp-best  { fill: var(--accent); }
+                .sp-cpu   { fill: var(--muted); opacity: 0.55; }
+                .sp-axis  { stroke: var(--border); stroke-width: 1; }
+              </style>
+              <line class="sp-axis" x1="268" y1="8" x2="268" y2="200"/>
+              <text class="sp-label" x="258" y="28" text-anchor="end" dominant-baseline="central">First GPU version</text>
+              <rect class="sp-gpu" x="268" y="17" width="19.7" height="22" rx="3"/>
+              <text class="sp-value" x="295" y="28" dominant-baseline="central">24,242</text>
+              <text class="sp-label" x="258" y="66" text-anchor="end" dominant-baseline="central">Smarter math</text>
+              <rect class="sp-gpu" x="268" y="55" width="68.4" height="22" rx="3"/>
+              <text class="sp-value" x="344" y="66" dominant-baseline="central">83,992</text>
+              <text class="sp-label" x="258" y="104" text-anchor="end" dominant-baseline="central">+ transistor block</text>
+              <rect class="sp-gpu" x="268" y="93" width="114.1" height="22" rx="3"/>
+              <text class="sp-value" x="390" y="104" dominant-baseline="central">140,200</text>
+              <text class="sp-label" x="258" y="142" text-anchor="end" dominant-baseline="central">Fastest CPU (4 cores)</text>
+              <rect class="sp-cpu" x="268" y="131" width="129.4" height="22" rx="3"/>
+              <text class="sp-value" x="405" y="142" dominant-baseline="central">159,019</text>
+              <text class="sp-label" x="258" y="180" text-anchor="end" dominant-baseline="central">+ 32-bit math (GPU)</text>
+              <rect class="sp-best" x="268" y="169" width="411" height="22" rx="3"/>
+              <text class="sp-value" x="687" y="180" dominant-baseline="central">504,948</text>
+            </svg>
+          </div>
+          <figcaption>Figure 7. Builds per second on the Jetson Nano (GPU bars in color, CPU in gray). LTspice's 24 builds per second is too small to show on this scale.</figcaption>
+        </figure>
+        <figure>
+          <img src="../assets/gpu-circuit-simulator/07-benchmark-6a.png" alt="Jetson Nano terminal: the faster method runs 84,190 builds per second on the GPU, 1.8 times all four CPU cores, and agrees with the original on all one million builds" loading="lazy">
+          <figcaption>Figure 8. The first optimization round, which also showed the GPU was only 1.8× faster than all four CPU cores at 64-bit precision.</figcaption>
+        </figure>
+        <p>
+          LTspice is general-purpose and computes 401 frequency points per build versus about 14 here, so the
+          comparison with it isn't like-for-like. The fair number is 3.2×: the GPU against all four CPU cores, both running
+          the same optimized code.
+        </p>
+      </section>
+
+      <!-- ===================== CHALLENGES ===================== -->
+      <section id="challenges">
+        <h2>Challenges &amp; Lessons Learned</h2>
+        <ul>
+          <li><strong>32-bit math lost accuracy at first.</strong> My first float version was off by up to 0.05%. I traced it to the transistor model's 1&nbsp;Ω internal resistor, which made the equations lose digits in 32-bit math. Folding the internal resistors into the transistor block made the float version 40× more accurate and faster.</li>
+          <li><strong>Know your hardware's weak spots.</strong> The Nano's GPU runs 64-bit math at 1/32 speed, so the first GPU version was only 1.8× faster than all four CPU cores even after the first round of optimizations. The biggest win came from using the format this GPU is fast at, once I'd checked the accuracy cost.</li>
+          <li><strong>Benchmark against the strongest baseline.</strong> Against a single CPU core, the GPU looked about 4× better than it really was. Measuring all four cores keeps the claim honest.</li>
+          <li><strong>Reproducible randomness pays off.</strong> Computing each build's parts from its build number meant the CPU and GPU simulated identical circuits, so every optimization could be checked build by build. This is the same answer-key approach I used in my <a href="fpga-nn-accelerator.html">FPGA accelerator project</a>.</li>
+        </ul>
+      </section>
+
+      <!-- ===================== FUTURE WORK ===================== -->
+      <section id="future-work">
+        <h2>Future Work</h2>
+        <ul>
+          <li>Measure the energy per million builds on the GPU and the CPU, using a current-sense resistor and an Analog Discovery 3.</li>
+          <li>Build the amplifier with real parts and check that measured gains fall inside the predicted range.</li>
+          <li>Add the transistor's internal capacitances to predict the high-frequency cutoff (about 29&nbsp;MHz).</li>
+          <li>Profile the kernel with NVIDIA's tools and try larger circuits, where the GPU's advantage should grow.</li>
+        </ul>
+      </section>
+
+    </div>
+
+    <a class="back-link" href="../index.html#projects">← All projects</a>
+  </main>
+
+  <footer class="container">
+    © 2026 Kyle Rebello
+  </footer>
+
+</body>
+</html>
