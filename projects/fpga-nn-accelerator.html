@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>INT-8 FPGA Neural Network Accelerator — Kyle Rebello</title>
-  <meta name="description" content="An 8-bit neural network engine in Verilog that classifies handwritten digits on a Cyclone IV FPGA, verified bit-for-bit against a Python reference model.">
+  <meta name="description" content="An 8-bit neural network engine in Verilog that classifies handwritten digits on a DE2-115 FPGA board in 128.7 µs, verified bit-for-bit against a Python reference model.">
   <link rel="stylesheet" href="../css/style.css?v=20261017">
 </head>
 <body>
@@ -28,7 +28,7 @@
     <!-- ===================== TITLE ===================== -->
     <header class="project-header">
       <h1>INT-8 FPGA Neural Network Accelerator</h1>
-      <p class="summary">A custom 8-bit neural network engine in Verilog that recognizes handwritten digits, matching its Python reference bit-for-bit and finishing each digit in 128.7&nbsp;µs (simulated at 50&nbsp;MHz).</p>
+      <p class="summary">A custom 8-bit neural network engine in Verilog that recognizes handwritten digits on a DE2-115 FPGA board, matching its Python reference bit-for-bit and finishing each digit in 128.7&nbsp;µs at 50&nbsp;MHz.</p>
 
       <div class="tags">
         <span class="tag">Verilog</span>
@@ -54,14 +54,14 @@
         </div>
         <div>
           <dt>Links</dt>
-          <!-- TODO: point this at the project's own repo once it's public, and add the demo video -->
-          <dd><a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a> · Board demo coming soon</dd>
+          <!-- TODO: point this at the project's own repo once it's public -->
+          <dd><a href="https://github.com/Kyle2006reb" target="_blank" rel="noopener">GitHub</a> · <a href="#demo">Board demo video</a></dd>
         </div>
       </dl>
 
       <figure>
-        <img src="../assets/fpga-nn-accelerator/01-engine-test-pass.png" alt="ModelSim transcript: for all 10 test pictures, the hardware's answer matches the golden model, each in 6,437 clock cycles, ending with a PASS line">
-        <figcaption>Full-engine simulation in ModelSim: all 10 test digits match the Python golden model, each in 6,437 clock cycles. Picture 8 is a 5 that the network reads as a 6, and the hardware reproduces that mistake exactly.</figcaption>
+        <img src="../assets/fpga-nn-accelerator/06-board-demo.jpg" alt="The DE2-115 FPGA board running the accelerator: the left 7-segment displays read 6437, the right ones show the guess 1 and the correct digit 1, and the green LEDs are lit">
+        <figcaption>The accelerator running on the DE2-115. It just classified a handwritten 1: the guess (far right) matches the correct digit, the green LEDs mean it's right, and the on-chip counter (left) shows it took 6,437 clock cycles.</figcaption>
       </figure>
     </header>
 
@@ -75,15 +75,34 @@
           FPGA, that recognizes handwritten digits. A small network is trained in PyTorch, converted to 8-bit
           integers, and run on 16 multiply-accumulate (MAC) units working in parallel. In simulation, the
           hardware matches a Python reference model on every intermediate value and classifies each digit in
-          6,437 clock cycles. The design is fully verified in simulation, and running it on the physical board
-          is the next step.
+          6,437 clock cycles. It now runs on a DE2-115 board, where a self-contained demo shows each test digit
+          on a VGA monitor and the network's answer on the board's 7-segment displays.
         </p>
         <div class="metrics">
           <div class="metric"><div class="value">97.46%</div><div class="label">Test accuracy with 8-bit math (float model: 97.47%)</div></div>
-          <div class="metric"><div class="value">128.7&nbsp;µs</div><div class="label">Per digit at 50 MHz (6,437 cycles, simulated)</div></div>
-          <div class="metric"><div class="value">4×</div><div class="label">Smaller weights: 8-bit integers instead of 32-bit floats</div></div>
+          <div class="metric"><div class="value">128.7&nbsp;µs</div><div class="label">Per digit at 50 MHz (6,437 cycles, confirmed on the board)</div></div>
+          <div class="metric"><div class="value">3%</div><div class="label">Of the FPGA's logic used (3,302 of 114,480 logic elements)</div></div>
           <div class="metric"><div class="value">100%</div><div class="label">Bit-exact match with the Python reference</div></div>
         </div>
+      </section>
+
+      <!-- ===================== BOARD DEMO ===================== -->
+      <section id="demo">
+        <h2>Board Demo</h2>
+        <p>
+          The demo runs on the board by itself, with no computer attached: the 10 test pictures are stored on
+          the chip. Each press of KEY1 shows the next picture on a VGA monitor, runs it through the network, and
+          displays the guess (HEX0), the correct digit (HEX2), and the clock cycles it took (HEX7–HEX4).
+          Green LEDs mean the guess is right, and red LEDs mean it's wrong.
+        </p>
+        <figure>
+          <video src="../assets/fpga-nn-accelerator/07-board-demo.mp4" poster="../assets/fpga-nn-accelerator/07-board-demo-poster.jpg" controls playsinline muted preload="metadata"
+                 aria-label="Video: pressing a button on the FPGA board shows a new handwritten digit on the monitor, and the board's 7-segment display shows its guess"
+                 style="display: block; margin: 0 auto; max-width: 100%; max-height: 78vh; border-radius: var(--radius-sm); border: 1px solid var(--border); box-shadow: var(--shadow); background: #000;">
+            <a href="../assets/fpga-nn-accelerator/07-board-demo.mp4">Watch the board demo video</a>
+          </video>
+          <figcaption>Stepping through test pictures on the board. Each press of KEY1 shows a new handwritten digit on the monitor, and the FPGA's answer appears on the 7-segment display about 0.13&nbsp;ms later.</figcaption>
+        </figure>
       </section>
 
       <!-- ===================== OBJECTIVE & PROBLEM ===================== -->
@@ -282,6 +301,7 @@
           <li><strong>MAC:</strong> multiplies a signed 8-bit input by a signed 8-bit weight and adds it to a 32-bit running total. The largest total seen was 571,032, far below the 32-bit limit.</li>
           <li><strong>Shrink:</strong> ReLU, a right shift by 13, and a cap at 127. It has no clock, so its output updates as soon as the total changes.</li>
           <li><strong>Engine:</strong> the image buffer, 16 lanes, hidden buffer, controller state machine, pick-biggest step, and a cycle counter.</li>
+          <li><strong>Board demo:</strong> on-chip memory holding the 10 test pictures, a controller that copies one into the engine on each button press, a 640&nbsp;×&nbsp;480 VGA display that draws the picture 16× larger, and drivers for the 7-segment displays and LEDs.</li>
         </ul>
         <pre><code>// MAC: one multiply-add per clock cycle
 always @(posedge clk)
@@ -310,7 +330,8 @@ assign out = (shifted &gt; 127) ? 8'd127 : shifted[7:0];</code></pre>
         <ul>
           <li><strong>Weight layout check (Python):</strong> replays the hardware's read order over the exported memory files and matches the golden model.</li>
           <li><strong>Single-lane test:</strong> one MAC, its weight memory, and the shrink unit, checked on its 8 neurons and 1 digit score for every image. All 90 checks passed.</li>
-          <li><strong>Full-engine test:</strong> all 1,280 hidden values, 100 scores, and 10 digits match the golden model (shown at the top of this page).</li>
+          <li><strong>Full-engine test:</strong> all 1,280 hidden values, 100 scores, and 10 digits match the golden model (Figure 6).</li>
+          <li><strong>On the board:</strong> the on-chip counter shows 6,437 clock cycles per digit, the same as in simulation.</li>
         </ul>
         <figure>
           <img src="../assets/fpga-nn-accelerator/03-mac-unit-test-pass.png" alt="ModelSim transcript: PASS, MAC 0 matched the golden model on all 90 checks" loading="lazy">
@@ -320,15 +341,21 @@ assign out = (shifted &gt; 127) ? 8'd127 : shifted[7:0];</code></pre>
           <a href="../assets/fpga-nn-accelerator/04-mac-waveform-full.png" target="_blank" rel="noopener"><img src="../assets/fpga-nn-accelerator/04-mac-waveform-full.png" alt="ModelSim waveform of one MAC over the whole test, with the running total drawn as a line that rises and falls" loading="lazy"></a>
           <figcaption>Figure 5. One MAC over the whole test. The running total rises and falls as each of its 90 calculations sweeps across an image, then resets for the next one. Click to enlarge.</figcaption>
         </figure>
+        <figure>
+          <img src="../assets/fpga-nn-accelerator/01-engine-test-pass.png" alt="ModelSim transcript: for all 10 test pictures, the hardware's answer matches the golden model, each in 6,437 clock cycles, ending with a PASS line" loading="lazy">
+          <figcaption>Figure 6. The full-engine test: all 10 test digits match the Python golden model, each in 6,437 clock cycles. Picture 8 is a 5 that the network reads as a 6, and the hardware reproduces that mistake exactly.</figcaption>
+        </figure>
       </section>
 
       <!-- ===================== RESULTS ===================== -->
       <section id="results">
         <h2>Results</h2>
         <p>
-          In simulation, the accelerator meets every target so far. The 8-bit design keeps the float model's
-          accuracy, and 16 MACs cut the cycle count about 16× compared with a single MAC. It also matches the
-          golden model on every value checked. On-board measurements come next.
+          The accelerator meets every target so far. The 8-bit design keeps the float model's accuracy, 16 MACs
+          cut the cycle count about 16× compared with a single MAC, and it matches the golden model on every
+          value checked. On the board, it uses only 3% of the chip's logic and 24% of its memory, and Quartus's
+          timing analysis shows it could run at up to 68.79&nbsp;MHz, about 38% faster than the board's 50&nbsp;MHz
+          clock.
         </p>
         <div class="table-wrap">
           <table>
@@ -338,12 +365,24 @@ assign out = (shifted &gt; 127) ? 8'd127 : shifted[7:0];</code></pre>
             <tbody>
               <tr><td>Test accuracy (10,000 MNIST images)</td><td>97.47% (32-bit float model)</td><td>97.46% (8-bit integer model)</td><td>Within 1% of float</td></tr>
               <tr><td>Weight storage</td><td>≈ 407&nbsp;KB (32-bit floats)</td><td>≈ 102&nbsp;KB (8-bit integers)</td><td>Fits in on-chip memory</td></tr>
-              <tr><td>Clock cycles per digit</td><td>≈ 102,000 with 1 MAC (calculated)</td><td>6,437 with 16 MACs (simulated)</td><td>—</td></tr>
+              <tr><td>Clock cycles per digit</td><td>≈ 102,000 with 1 MAC (calculated)</td><td>6,437 with 16 MACs (simulated, and confirmed on the board)</td><td>—</td></tr>
               <tr><td>Time per digit at 50&nbsp;MHz</td><td>≈ 2.04&nbsp;ms with 1 MAC</td><td>128.7&nbsp;µs</td><td>Under 1&nbsp;ms</td></tr>
               <tr><td>Match with Python reference</td><td>—</td><td>1,390 of 1,390 values (10 images)</td><td>100%</td></tr>
+              <tr><td>FPGA logic used</td><td>—</td><td>3,302 of 114,480 logic elements (3%)</td><td>Fits on the chip</td></tr>
+              <tr><td>On-chip memory used</td><td>—</td><td>943,072 of 3,981,312 bits (24%)</td><td>Fits on the chip</td></tr>
+              <tr><td>Hardware multipliers used</td><td>—</td><td>16 of 532 (one per lane)</td><td>—</td></tr>
+              <tr><td>Maximum clock speed</td><td>50&nbsp;MHz (board clock)</td><td>68.79&nbsp;MHz (Quartus, worst-case model)</td><td>At least 50&nbsp;MHz</td></tr>
             </tbody>
           </table>
         </div>
+        <figure>
+          <img style="max-width: min(100%, 760px); margin: 0 auto;" src="../assets/fpga-nn-accelerator/08-quartus-flow-summary.jpg" alt="Quartus Flow Summary: compilation successful on the Cyclone IV E EP4CE115F29C7, using 3,302 of 114,480 logic elements, 943,072 of 3,981,312 memory bits, and 16 of 532 multipliers" loading="lazy">
+          <figcaption>Figure 7. Quartus's compilation summary. The whole design, including the board demo, fits in a small corner of the chip.</figcaption>
+        </figure>
+        <figure>
+          <img style="max-width: min(100%, 600px); margin: 0 auto;" src="../assets/fpga-nn-accelerator/09-quartus-fmax.jpg" alt="Quartus Timing Analyzer, slow 1200 mV 85 C model: Fmax and restricted Fmax of 68.79 MHz for CLOCK_50" loading="lazy">
+          <figcaption>Figure 8. Quartus's timing analysis under worst-case conditions (a hot chip at low voltage): the design could run at up to 68.79&nbsp;MHz.</figcaption>
+        </figure>
       </section>
 
       <!-- ===================== CHALLENGES ===================== -->
@@ -362,10 +401,9 @@ assign out = (shifted &gt; 127) ? 8'd127 : shifted[7:0];</code></pre>
       <section id="future-work">
         <h2>Future Work</h2>
         <ul>
-          <li>Run the design on the DE2-115: a UART link to stream images from a laptop, the answer on the 7-segment display, and pin assignments in Quartus.</li>
-          <li>Run all 10,000 MNIST test images on the board and confirm every answer matches the golden model.</li>
-          <li>Measure real inference time with an on-chip cycle counter and an Analog Discovery 3 logic analyzer, and compare compute time with the time spent sending each image.</li>
-          <li>Record FPGA resource use and maximum clock speed in Quartus, then compare 8, 16, and 32 MACs.</li>
+          <li>Stream all 10,000 MNIST test images to the board from a laptop over a UART link, and confirm every answer matches the golden model.</li>
+          <li>Measure the real compute time with an Analog Discovery 3 logic analyzer on the engine's busy signal (already wired to a GPIO pin), and compare it with the time spent sending each image.</li>
+          <li>Compare speed and chip area for 8, 16, and 32 MACs.</li>
           <li>Stretch goals: a 2D systolic array, adding biases back, or a small convolutional network.</li>
         </ul>
       </section>
